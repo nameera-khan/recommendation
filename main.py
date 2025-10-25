@@ -581,16 +581,16 @@ def find_matches_section(matchmaker):
     st.header("👤 Find Compatible Matches")
     
     # Get all user IDs
-    user_ids = matchmaker.user_ids
+    user_names = matchmaker.user_names
     
-    if not user_ids:
+    if not user_names:
         st.error("No users found in the dataset")
         return
     
     # User selection
     selected_user = st.selectbox(
         "Select a user to find matches for:",
-        options=user_ids,
+        options=user_names,
         format_func=lambda x: f"{x} - {matchmaker.gender_map.get(x, 'Unknown')}"
     )
     
