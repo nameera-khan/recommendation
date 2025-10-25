@@ -755,7 +755,7 @@ def clean_sensitive_dataset(df):
         return df_cleaned
     else:
         st.warning("⚠️ No sensitive identifier columns found in the dataset")
-        return pd.DataFrame()
+    return pd.DataFrame()
 
 def handle_file_upload():
     """Handle manual file uploads for all datasets"""
@@ -911,7 +911,7 @@ def display_user_details(user_details, sensitive_data=None):
         st.subheader("🛡️ Contact & Additional Information")
         
         # Try to find matching user in sensitive dataset
-        user_id = user_details['basic_info']['name']  # Using name as identifier
+        user_id = sensitive_data['self_identification']  # Using name as identifier
         
         # Look for matching rows in sensitive dataset
         matching_rows = find_matching_sensitive_data(user_id, sensitive_data)
