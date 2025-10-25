@@ -755,7 +755,7 @@ def clean_sensitive_dataset(df):
         return df_cleaned
     else:
         st.warning("⚠️ No sensitive identifier columns found in the dataset")
-    return pd.DataFrame()
+        return pd.DataFrame()
 
 def handle_file_upload():
     """Handle manual file uploads for all datasets"""
