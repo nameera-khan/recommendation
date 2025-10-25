@@ -737,7 +737,7 @@ def standardize_datasets(df1, df2, df3=None):
 
 def clean_sensitive_dataset(df):
     """Clean the 3rd dataset to only keep sensitive identifiers"""
-    sensitive_identifiers = [
+    sensitive_identifiers = ["self_identification", "self_full_name",
         "Please provide your email address", "Please provide your mobile number",
         "What is your occupation? Please share your LinkedIn",
         "Please share any social media profiles e.g Instagram, TikTok, X, etc",
