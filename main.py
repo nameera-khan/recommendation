@@ -492,7 +492,7 @@ class CrossDatasetMuslimMatchmaker:
         }
 
         return analysis
-------
+
 def show_dashboard(matchmaker):
     """Display the main dashboard"""
     st.header("📊 Matchmaking Dashboard")
@@ -706,7 +706,6 @@ def analytics_section(matchmaker):
             )
             st.plotly_chart(fig, use_container_width=True)
 
------
 def standardize_datasets(df1, df2, df3=None):
     """Standardize all datasets to have compatible columns"""
     # Add missing columns to each dataset with default values
