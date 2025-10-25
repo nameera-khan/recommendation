@@ -26,6 +26,7 @@ class CrossDatasetMuslimMatchmaker:
     def __init__(self, data, df1_std=None, df2_std=None):
         self.data = data.copy()
         self.user_ids = data['self_identification'].tolist()
+        self.user_names = data['self_full_name'].tolist()
         self.gender_map = data.set_index('self_identification')['self_gender'].to_dict()
         self.age_map = data.set_index('self_identification')['self_age'].to_dict()
 
