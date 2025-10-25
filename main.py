@@ -417,7 +417,7 @@ class CrossDatasetMuslimMatchmaker:
     
         if st.button("Find Matches", type="primary"):
             with st.spinner("Finding compatible matches..."):
-            matches = matchmaker.find_matches(selected_user, top_n=top_n)
+                matches = matchmaker.find_matches(selected_user, top_n=top_n)
         
             if matches:
                 st.success(f"Found {len(matches)} compatible matches!")
