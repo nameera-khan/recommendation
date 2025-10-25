@@ -493,14 +493,16 @@ class CrossDatasetMuslimMatchmaker:
 
         return analysis
 
-def standardize_datasets(df1, df2):
-    """Standardize both datasets to have compatible columns"""
+def standardize_datasets(df1, df2, df3=None):
+    """Standardize all datasets to have compatible columns"""
     # Add missing columns to each dataset with default values
     for col in DIFFERING_COLUMNS:
         if col not in df1.columns:
             df1[col] = 0
         if col not in df2.columns:
             df2[col] = 0
+        if df3 is not None and col not in df3.columns:
+            df3[col] = 0
 
     # Handle love language columns mapping
     love_language_mapping = {
@@ -517,17 +519,40 @@ def standardize_datasets(df1, df2):
         if old_col in df1.columns and new_col not in df1.columns:
             df1[new_col] = df1[old_col]
 
-    return df1, df2
+    return df1, df2, df3
+
+def clean_sensitive_dataset(df):
+    """Clean the 3rd dataset to only keep sensitive identifiers"""
+    sensitive_identifiers = [
+        "Please provide your email address", "Please provide your mobile number",
+        "What is your occupation? Please share your LinkedIn",
+        "Please share any social media profiles e.g Instagram, TikTok, X, etc",
+        "Please provide a full length picture taken in the last 2 months",
+        "Please provide a video up to 2 mins describing your relationship with Islam"
+    ]
+    
+    # Find columns that actually exist in the dataset
+    existing_sensitive_cols = [col for col in sensitive_identifiers if col in df.columns]
+    
+    # Keep only the sensitive identifier columns
+    if existing_sensitive_cols:
+        df_cleaned = df[existing_sensitive_cols].copy()
+        st.info(f"✅ Kept {len(existing_sensitive_cols)} sensitive identifier columns")
+        return df_cleaned
+    else:
+        st.warning("⚠️ No sensitive identifier columns found in the dataset")
+        return pd.DataFrame()
 
 def handle_file_upload():
-    """Handle manual file uploads for both datasets"""
+    """Handle manual file uploads for all datasets"""
     st.sidebar.header("📁 Upload Your Datasets")
     
     st.sidebar.markdown("""
     **Instructions:**
     1. Upload your first dataset (CSV format)
     2. Upload your second dataset (CSV format)  
-    3. Click 'Process Datasets' to start matching
+    3. (Optional) Upload third dataset with sensitive identifiers
+    4. Click 'Process Datasets' to start matching
     """)
     
     # File uploaders
@@ -545,28 +570,50 @@ def handle_file_upload():
         help="Upload your second dataset in CSV format"
     )
     
+    # New 3rd dataset uploader
+    uploaded_file3 = st.sidebar.file_uploader(
+        "Upload Third Dataset with Sensitive Identifiers (CSV)", 
+        type=['csv'],
+        key="file3",
+        help="Upload dataset containing sensitive identifiers (emails, phone numbers, etc.)"
+    )
+    
     # Process button
     process_clicked = st.sidebar.button("🚀 Process Datasets", type="primary")
     
-    return uploaded_file1, uploaded_file2, process_clicked
+    return uploaded_file1, uploaded_file2, uploaded_file3, process_clicked
 
-def load_and_prepare_data(uploaded_file1, uploaded_file2):
+def load_and_prepare_data(uploaded_file1, uploaded_file2, uploaded_file3=None):
     """Load and prepare datasets from uploaded files"""
     
     if uploaded_file1 is None or uploaded_file2 is None:
-        return None, None, None
+        return None, None, None, None
     
     try:
         # Read uploaded files
         df1 = pd.read_csv(uploaded_file1)
         df2 = pd.read_csv(uploaded_file2)
         
+        # Process 3rd dataset if provided
+        df3_cleaned = None
+        if uploaded_file3 is not None:
+            df3 = pd.read_csv(uploaded_file3)
+            st.success(f"✅ Dataset 3 loaded: {len(df3)} users")
+            
+            # Clean the 3rd dataset to only keep sensitive identifiers
+            with st.spinner("🛡️ Cleaning sensitive dataset..."):
+                df3_cleaned = clean_sensitive_dataset(df3)
+            
+            if not df3_cleaned.empty:
+                st.success(f"✅ Sensitive dataset cleaned: {len(df3_cleaned.columns)} columns preserved")
+                st.dataframe(df3_cleaned.head(3), use_container_width=True)
+        
         # Show dataset info
         st.success(f"✅ Dataset 1 loaded: {len(df1)} users")
         st.success(f"✅ Dataset 2 loaded: {len(df2)} users")
         
         # Display basic info about datasets
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.info(f"**Dataset 1 Columns:** {len(df1.columns)}")
             st.dataframe(df1.head(3), use_container_width=True)
@@ -574,24 +621,31 @@ def load_and_prepare_data(uploaded_file1, uploaded_file2):
         with col2:
             st.info(f"**Dataset 2 Columns:** {len(df2.columns)}")
             st.dataframe(df2.head(3), use_container_width=True)
+            
+        with col3:
+            if df3_cleaned is not None and not df3_cleaned.empty:
+                st.info(f"**Dataset 3 (Cleaned):** {len(df3_cleaned.columns)} columns")
+                st.dataframe(df3_cleaned.head(3), use_container_width=True)
+            else:
+                st.info("**Dataset 3:** Not provided or empty")
         
         # Standardize datasets
         with st.spinner("🔄 Standardizing datasets..."):
-            df1_std, df2_std = standardize_datasets(df1.copy(), df2.copy())
+            df1_std, df2_std, df3_std = standardize_datasets(df1.copy(), df2.copy(), df3_cleaned)
         
-        # Combine datasets
+        # Combine datasets (only first two for matching)
         combined_df = pd.concat([df1_std, df2_std], ignore_index=True)
         combined_df = combined_df.fillna(0)
         
         st.success(f"✅ Combined dataset ready: {len(combined_df)} total users")
         
-        return combined_df, df1_std, df2_std
+        return combined_df, df1_std, df2_std, df3_std
         
     except Exception as e:
         st.error(f"❌ Error processing files: {str(e)}")
-        return None, None, None
+        return None, None, None, None
 
-def initialize_matchmaker(combined_df, df1_std, df2_std):
+def initialize_matchmaker(combined_df, df1_std, df2_std, df3_std=None):
     """Initialize the matchmaker with loaded data"""
     if combined_df is None or combined_df.empty:
         return None
@@ -600,6 +654,13 @@ def initialize_matchmaker(combined_df, df1_std, df2_std):
         with st.spinner("🔄 Initializing matchmaker..."):
             matchmaker = CrossDatasetMuslimMatchmaker(combined_df, df1_std, df2_std)
             matchmaker.preprocess_features()
+            
+            # Store the sensitive dataset in the matchmaker if provided
+            if df3_std is not None and not df3_std.empty:
+                matchmaker.sensitive_dataset = df3_std
+                st.session_state.sensitive_dataset = df3_std
+            else:
+                matchmaker.sensitive_dataset = None
         
         st.success("✅ Matchmaker initialized successfully!")
         return matchmaker
@@ -608,8 +669,8 @@ def initialize_matchmaker(combined_df, df1_std, df2_std):
         st.error(f"❌ Error initializing matchmaker: {str(e)}")
         return None
 
-def display_user_details(user_details):
-    """Display user details in an organized format"""
+def display_user_details(user_details, sensitive_data=None):
+    """Display user details in an organized format with optional sensitive data"""
     st.subheader("Basic Information")
     basic_info = user_details['basic_info']
     col1, col2, col3, col4 = st.columns(4)
@@ -630,6 +691,26 @@ def display_user_details(user_details):
         st.write("**Dataset:**", basic_info['dataset'])
     
     st.divider()
+    
+    # Display sensitive information if available
+    if sensitive_data is not None and not sensitive_data.empty:
+        st.subheader("🛡️ Contact & Additional Information")
+        
+        # Try to find matching user in sensitive dataset
+        user_id = user_details['basic_info']['name']  # Using name as identifier
+        
+        # Look for matching rows in sensitive dataset
+        matching_rows = find_matching_sensitive_data(user_id, sensitive_data)
+        
+        if not matching_rows.empty:
+            for idx, row in matching_rows.iterrows():
+                for col in sensitive_data.columns:
+                    if pd.notna(row[col]) and str(row[col]).strip() != '':
+                        st.write(f"**{col}:** {row[col]}")
+        else:
+            st.info("No additional contact information available for this user")
+        
+        st.divider()
     
     # Religious Information
     st.subheader("Religious Information")
@@ -677,145 +758,18 @@ def display_user_details(user_details):
     else:
         st.write("No specific dealbreakers listed")
 
-def show_dashboard(matchmaker):
-    """Display the main dashboard"""
-    st.header("📊 Matchmaking Dashboard")
+def find_matching_sensitive_data(user_identifier, sensitive_df):
+    """Find matching rows in sensitive dataset based on user identifier"""
+    # This function tries to match the user with their sensitive data
+    # You may need to customize the matching logic based on your data structure
     
-    # Get demographic summary
-    demographics = matchmaker.get_demographic_summary()
-    
-    # Display key metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Total Users", demographics['total_users'])
-    
-    with col2:
-        st.metric("Male Users", demographics['total_males'])
-    
-    with col3:
-        st.metric("Female Users", demographics['total_females'])
-    
-    with col4:
-        st.metric("Datasets", "2 Combined")
-    
-    # Age distribution charts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("👨 Male Users")
-        if demographics['male_users']:
-            male_ages = [user['age'] for user in demographics['male_users'] if user['age'] and user['age'] != 0]
-            if male_ages:
-                fig = px.histogram(x=male_ages, nbins=10, title="Male Age Distribution")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No age data available for male users")
-        else:
-            st.info("No male users in dataset")
-    
-    with col2:
-        st.subheader("👩 Female Users")
-        if demographics['female_users']:
-            female_ages = [user['age'] for user in demographics['female_users'] if user['age'] and user['age'] != 0]
-            if female_ages:
-                fig = px.histogram(x=female_ages, nbins=10, title="Female Age Distribution")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No age data available for female users")
-        else:
-            st.info("No female users in dataset")
-    
-    # User lists
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Male Users List")
-        if demographics['male_users']:
-            male_df = pd.DataFrame(demographics['male_users'])
-            st.dataframe(male_df[['name', 'age', 'location', 'dataset']], use_container_width=True)
-        else:
-            st.info("No male users available")
-    
-    with col2:
-        st.subheader("Female Users List")
-        if demographics['female_users']:
-            female_df = pd.DataFrame(demographics['female_users'])
-            st.dataframe(female_df[['name', 'age', 'location', 'dataset']], use_container_width=True)
-        else:
-            st.info("No female users available")
-
-def find_matches_section(matchmaker):
-    """Section for finding matches for a specific user"""
-    st.header("👤 Find Compatible Matches")
-    
-    # Get all user IDs
-    user_ids = matchmaker.user_ids
-    
-    if not user_ids:
-        st.error("No users found in the dataset")
-        return
-    
-    # User selection
-    selected_user = st.selectbox(
-        "Select a user to find matches for:",
-        options=user_ids,
-        format_func=lambda x: f"{x} - {matchmaker.gender_map.get(x, 'Unknown')}"
+    # Simple matching: look for exact match in any column
+    matching_rows = sensitive_df.apply(
+        lambda row: user_identifier.lower() in row.astype(str).str.lower().values, 
+        axis=1
     )
     
-    # Number of matches to show
-    top_n = st.slider("Number of matches to show:", min_value=1, max_value=20, value=5)
-    
-    if st.button("Find Matches", type="primary"):
-        with st.spinner("Finding compatible matches..."):
-            matches = matchmaker.find_matches(selected_user, top_n=top_n)
-        
-        if matches:
-            st.success(f"Found {len(matches)} compatible matches!")
-            
-            # Display matches in a nice format
-            for i, match in enumerate(matches, 1):
-                with st.container():
-                    col1, col2, col3 = st.columns([3, 2, 1])
-                    
-                    with col1:
-                        st.subheader(f"{i}. {match['name']}")
-                        st.write(f"**Age:** {match['age']} | **Location:** {match['location']}")
-                        st.write(f"**Dataset:** {match['dataset']} | **Age Difference:** {match['age_difference']} years")
-                    
-                    with col2:
-                        # Progress bar for compatibility score
-                        score_percent = match['score'] * 100
-                        st.progress(float(match['score']))
-                        st.write(f"**Compatibility:** {score_percent:.1f}%")
-                    
-                    with col3:
-                        if st.button("View Details", key=f"details_{i}"):
-                            st.session_state[f"show_match_{i}"] = not st.session_state.get(f"show_match_{i}", False)
-                    
-                    # Show detailed analysis when button is clicked
-                    if st.session_state.get(f"show_match_{i}", False):
-                        analysis = matchmaker.get_match_analysis(selected_user, match['user_id'])
-                        with st.expander("Match Analysis", expanded=True):
-                            if isinstance(analysis, dict):
-                                st.write(f"**Overall Score:** {analysis['overall_score']:.2f}")
-                                st.write(f"**Age Difference:** {analysis['age_difference']} years")
-                                st.write(f"**Geographic Compatibility:** {analysis['geographic_compatibility']:.2f}")
-                                st.write(f"**Religious Similarity:** {analysis['religious_similarity']:.2f}")
-                                st.write(f"**Goals Alignment:** {analysis['goals_alignment']:.2f}")
-                                st.write(f"**Dealbreakers:** {analysis['dealbreakers']}")
-                            else:
-                                st.write(analysis)
-                        
-                        # Show user details
-                        user_details = matchmaker.get_user_details(match['user_id'])
-                        if user_details:
-                            with st.expander("User Profile", expanded=False):
-                                display_user_details(user_details)
-                
-                st.divider()
-        else:
-            st.warning("No compatible matches found for this user.")
+    return sensitive_df[matching_rows]
 
 def user_details_section(matchmaker):
     """Section for viewing detailed user information"""
@@ -833,66 +787,21 @@ def user_details_section(matchmaker):
         key="user_details_select"
     )
     
+    # Check if sensitive dataset is available
+    sensitive_data = getattr(matchmaker, 'sensitive_dataset', None)
+    has_sensitive_data = sensitive_data is not None and not sensitive_data.empty
+    
+    if has_sensitive_data:
+        st.info("🛡️ Sensitive dataset available - contact information will be displayed")
+    
     if st.button("Show User Details", type="primary"):
         user_details = matchmaker.get_user_details(selected_user)
         
         if user_details:
-            display_user_details(user_details)
+            display_user_details(user_details, sensitive_data)
         else:
             st.error("Could not retrieve user details")
 
-def analytics_section(matchmaker):
-    """Section for analytics and insights"""
-    st.header("📈 Matchmaking Analytics")
-    
-    demographics = matchmaker.get_demographic_summary()
-    
-    # Compatibility score distribution (sample calculation)
-    st.subheader("Sample Compatibility Analysis")
-    
-    # Calculate some sample compatibilities for demonstration
-    if len(matchmaker.user_ids) >= 4:
-        sample_users = matchmaker.user_ids[:4]
-        compatibility_matrix = []
-        
-        with st.spinner("Calculating sample compatibilities..."):
-            for i, user1 in enumerate(sample_users):
-                row = []
-                for j, user2 in enumerate(sample_users):
-                    if i != j and matchmaker.gender_map.get(user1) != matchmaker.gender_map.get(user2):
-                        score = matchmaker.calculate_compatibility(user1, user2)
-                        row.append(score)
-                    else:
-                        row.append(0)
-                compatibility_matrix.append(row)
-        
-        # Display compatibility matrix
-        if compatibility_matrix:
-            fig = px.imshow(
-                compatibility_matrix,
-                x=[f"User {i+1}" for i in range(len(sample_users))],
-                y=[f"User {i+1}" for i in range(len(sample_users))],
-                title="Sample Compatibility Matrix",
-                color_continuous_scale="Viridis"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    # Dataset distribution
-    st.subheader("Dataset Distribution")
-    source_counts = {}
-    for user_id in matchmaker.user_ids:
-        source = matchmaker.dataset_source.get(user_id, 'unknown')
-        source_counts[source] = source_counts.get(source, 0) + 1
-    
-    if source_counts:
-        fig = px.pie(
-            values=list(source_counts.values()),
-            names=list(source_counts.keys()),
-            title="User Distribution by Dataset"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        
 def show_data_upload_section():
     """Show the main data upload interface"""
     st.header("🕌 Muslim Matchmaking Recommendation System")
@@ -907,42 +816,52 @@ def show_data_upload_section():
         st.subheader("📋 How to Use:")
         st.markdown("""
         1. **Upload Datasets** - Use the sidebar to upload two CSV files
-        2. **Process Data** - Click 'Process Datasets' to combine and standardize
-        3. **Find Matches** - Use the navigation to explore matches and analytics
-        4. **View Details** - See detailed user profiles and compatibility analysis
+        2. **Upload Sensitive Data** (Optional) - Third dataset with contact info
+        3. **Process Data** - Click 'Process Datasets' to combine and standardize
+        4. **Find Matches** - Use the navigation to explore matches and analytics
+        5. **View Details** - See detailed user profiles with contact information
         """)
     
     with col2:
         st.subheader("🔍 Required Data Columns:")
         st.markdown("""
-        Your CSV files should include:
+        **Main Datasets:**
         - User identification
         - Gender and age information  
         - Religious practices
         - Personal goals
         - Location data
         - Dealbreakers and preferences
+        
+        **Sensitive Dataset (Optional):**
+        - Email addresses
+        - Phone numbers
+        - LinkedIn profiles
+        - Social media handles
+        - Photos and videos
         """)
     
     st.info("👈 **Start by uploading your datasets in the sidebar**")
 
 def main():
-    # Initialize session state for matchmaker
+    # Initialize session state for matchmaker and sensitive data
     if 'matchmaker' not in st.session_state:
         st.session_state.matchmaker = None
     if 'data_processed' not in st.session_state:
         st.session_state.data_processed = False
+    if 'sensitive_dataset' not in st.session_state:
+        st.session_state.sensitive_dataset = None
     
-    # Handle file uploads
-    uploaded_file1, uploaded_file2, process_clicked = handle_file_upload()
+    # Handle file uploads (now returns 3 files)
+    uploaded_file1, uploaded_file2, uploaded_file3, process_clicked = handle_file_upload()
     
     # Process datasets when button is clicked
     if process_clicked and uploaded_file1 and uploaded_file2:
         with st.spinner("Processing your datasets..."):
-            combined_df, df1_std, df2_std = load_and_prepare_data(uploaded_file1, uploaded_file2)
+            combined_df, df1_std, df2_std, df3_std = load_and_prepare_data(uploaded_file1, uploaded_file2, uploaded_file3)
             
             if combined_df is not None:
-                matchmaker = initialize_matchmaker(combined_df, df1_std, df2_std)
+                matchmaker = initialize_matchmaker(combined_df, df1_std, df2_std, df3_std)
                 if matchmaker:
                     st.session_state.matchmaker = matchmaker
                     st.session_state.data_processed = True
@@ -960,6 +879,12 @@ def main():
             ["🏠 Dashboard", "👤 Find Matches", "📊 User Details", "📈 Analytics", "🔄 Upload New Data"]
         )
         
+        # Display sensitive dataset status
+        if hasattr(matchmaker, 'sensitive_dataset') and matchmaker.sensitive_dataset is not None:
+            st.sidebar.success("🛡️ Sensitive dataset loaded")
+        else:
+            st.sidebar.info("ℹ️ No sensitive dataset loaded")
+        
         if app_mode == "🏠 Dashboard":
             show_dashboard(matchmaker)
         elif app_mode == "👤 Find Matches":
@@ -973,6 +898,7 @@ def main():
             if st.sidebar.button("Start New Session"):
                 st.session_state.matchmaker = None
                 st.session_state.data_processed = False
+                st.session_state.sensitive_dataset = None
                 st.rerun()
             show_data_upload_section()
     
