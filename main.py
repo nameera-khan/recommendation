@@ -911,7 +911,7 @@ def display_user_details(user_details, sensitive_data=None):
         st.subheader("🛡️ Contact & Additional Information")
         
         # Try to find matching user in sensitive dataset
-        user_id = user_details['basic_info']['name']   # Using name as identifier
+        user_id = user_details['basic_info']['name']  # Using name as identifier
         
         # Look for matching rows in sensitive dataset
         matching_rows = find_matching_sensitive_data(user_id, sensitive_data)
