@@ -395,7 +395,7 @@ class CrossDatasetMuslimMatchmaker:
 
     ############
     def find_matches_section(matchmaker):
-    """Section for finding matches for a specific user"""
+        """Section for finding matches for a specific user"""
         st.header("👤 Find Compatible Matches")
     
     # Get all user IDs
