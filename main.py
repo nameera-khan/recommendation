@@ -26,8 +26,8 @@ class CrossDatasetMuslimMatchmaker:
     def __init__(self, data, df1_std=None, df2_std=None):
         self.data = data.copy()
         self.user_ids = data['self_identification'].tolist()
-        self.user_names = data['self_full_name'].tolist()
-        self.gender_map = data.set_index('self_identification')['self_gender'].to_dict()
+        #self.user_names = data['self_full_name'].tolist()
+        self.gender_map = data.set_index('self_full_name')['self_gender'].to_dict()
         self.age_map = data.set_index('self_identification')['self_age'].to_dict()
 
         # Track which dataset each user came from
@@ -582,16 +582,16 @@ def find_matches_section(matchmaker):
     st.header("👤 Find Compatible Matches")
     
     # Get all user IDs
-    user_names = matchmaker.user_names
+    user_ids = matchmaker.user_ids
     
-    if not user_names:
+    if not user_ids:
         st.error("No users found in the dataset")
         return
     
     # User selection
     selected_user = st.selectbox(
         "Select a user to find matches for:",
-        options=user_names,
+        options=user_ids,
         format_func=lambda x: f"{x} - {matchmaker.gender_map.get(x, 'Unknown')}"
     )
     
