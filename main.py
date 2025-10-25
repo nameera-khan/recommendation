@@ -393,47 +393,105 @@ class CrossDatasetMuslimMatchmaker:
 
         return final_score
 
-    def find_matches(self, user_id, top_n=5):
-        """Find top matches for a given user across both datasets"""
-        matches = []
-        user_age = self.age_map.get(user_id, 0)
-        user_gender = self.gender_map.get(user_id)
-
-        if not user_gender:
-            return matches
-
-        for other_user_id in self.user_ids:
-            if other_user_id != user_id:
-                # Skip if same gender
-                if self.gender_map.get(other_user_id) == user_gender:
-                    continue
-
-                # Check age difference
-                other_user_age = self.age_map.get(other_user_id, 0)
-                if user_age and other_user_age:
-                    if abs(user_age - other_user_age) > 10:
-                        continue
-
-                score = self.calculate_compatibility(user_id, other_user_id)
-                if score > 0:  # Only include viable matches
-                    try:
-                        matches.append({
-                            'user_id': other_user_id,
-                            'score': score,
-                            'name': self.data[self.data['self_identification'] == other_user_id]['self_full_name'].iloc[0],
-                            'gender': self.gender_map.get(other_user_id, 'Unknown'),
-                            'location': self.data[self.data['self_identification'] == other_user_id]['self_current_location'].iloc[0],
-                            'age': self.age_map.get(other_user_id, 'N/A'),
-                            'age_difference': abs(user_age - other_user_age) if user_age and other_user_age else 'N/A',
-                            'dataset': self.dataset_source.get(other_user_id, 'Unknown')
-                        })
-                    except (IndexError, KeyError):
-                        continue
-
-        # Sort by score and return top matches
-        matches.sort(key=lambda x: x['score'], reverse=True)
-        return matches[:top_n]
-
+    def find_matches_section(matchmaker):
+    """Section for finding matches for a specific user"""
+    st.header("👤 Find Compatible Matches")
+    
+    # Get all user IDs
+    user_ids = matchmaker.user_ids
+    
+    if not user_ids:
+        st.error("No users found in the dataset")
+        return
+    
+    # User selection
+    selected_user = st.selectbox(
+        "Select a user to find matches for:",
+        options=user_ids,
+        format_func=lambda x: f"{x} - {matchmaker.gender_map.get(x, 'Unknown')}"
+    )
+    
+    # Number of matches to show
+    top_n = st.slider("Number of matches to show:", min_value=1, max_value=20, value=5)
+    
+    if st.button("Find Matches", type="primary"):
+        with st.spinner("Finding compatible matches..."):
+            matches = matchmaker.find_matches(selected_user, top_n=top_n)
+        
+        if matches:
+            st.success(f"Found {len(matches)} compatible matches!")
+            
+            # Display matches in a nice format
+            for i, match in enumerate(matches, 1):
+                with st.container():
+                    col1, col2, col3 = st.columns([3, 2, 1])
+                    
+                    with col1:
+                        st.subheader(f"{i}. {match['name']}")
+                        st.write(f"**Age:** {match['age']} | **Location:** {match['location']}")
+                        st.write(f"**Dataset:** {match['dataset']} | **Age Difference:** {match['age_difference']} years")
+                    
+                    with col2:
+                        # Progress bar for compatibility score
+                        score_percent = match['score'] * 100
+                        st.progress(float(match['score']))
+                        st.write(f"**Compatibility:** {score_percent:.1f}%")
+                    
+                    with col3:
+                        # Use a unique key for each button that persists across reruns
+                        button_key = f"view_details_{selected_user}_{match['user_id']}_{i}"
+                        if st.button("View Details", key=button_key):
+                            # Toggle the display state for this specific match
+                            toggle_key = f"show_details_{selected_user}_{match['user_id']}"
+                            st.session_state[toggle_key] = not st.session_state.get(toggle_key, False)
+                    
+                    # Check if we should show details for this specific match
+                    toggle_key = f"show_details_{selected_user}_{match['user_id']}"
+                    if st.session_state.get(toggle_key, False):
+                        with st.expander("🔍 Match Analysis & User Profile", expanded=True):
+                            # Show match analysis
+                            st.subheader("📊 Match Analysis")
+                            analysis = matchmaker.get_match_analysis(selected_user, match['user_id'])
+                            
+                            if isinstance(analysis, dict):
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("Overall Score", f"{analysis['overall_score']:.2f}")
+                                    st.metric("Age Difference", f"{analysis['age_difference']} years")
+                                with col2:
+                                    st.metric("Geographic Compatibility", f"{analysis['geographic_compatibility']:.2f}")
+                                    st.metric("Religious Similarity", f"{analysis['religious_similarity']:.2f}")
+                                with col3:
+                                    st.metric("Goals Alignment", f"{analysis['goals_alignment']:.2f}")
+                                    st.metric("Dealbreakers", analysis['dealbreakers'])
+                                
+                                # Progress bars for compatibility factors
+                                st.subheader("Compatibility Breakdown")
+                                factors = {
+                                    'Geographic': analysis['geographic_compatibility'],
+                                    'Religious': analysis['religious_similarity'],
+                                    'Goals': analysis['goals_alignment']
+                                }
+                                
+                                for factor, score in factors.items():
+                                    st.write(f"**{factor}:** {score:.2f}")
+                                    st.progress(float(score))
+                            else:
+                                st.write(analysis)
+                            
+                            st.markdown("---")
+                            
+                            # Show user details
+                            st.subheader("👤 User Profile")
+                            user_details = matchmaker.get_user_details(match['user_id'])
+                            if user_details:
+                                display_user_details(user_details)
+                            else:
+                                st.error("Could not load user details")
+                
+                st.divider()
+        else:
+            st.warning("No compatible matches found for this user.")
     def get_user_details(self, user_id):
         """Get comprehensive details for a user"""
         if user_id not in self.user_ids:
