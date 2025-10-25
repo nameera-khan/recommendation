@@ -21,6 +21,8 @@ DIFFERING_COLUMNS = {
     'self_marital_talking_stages', 'self_sect_shia'
 }
 
+# [Keep your entire CrossDatasetMuslimMatchmaker class exactly as it is]
+# [All the class methods remain unchanged]
 class CrossDatasetMuslimMatchmaker:
     
     def __init__(self, data, df1_std=None, df2_std=None):  # Fixed parameter names
@@ -498,9 +500,9 @@ def standardize_datasets(df1, df2):
     # Add missing columns to each dataset with default values
     for col in DIFFERING_COLUMNS:
         if col not in df1.columns:
-            df1[col] = 0  # or appropriate default
+            df1[col] = 0
         if col not in df2.columns:
-            df2[col] = 0  # or appropriate default
+            df2[col] = 0
 
     # Handle love language columns mapping
     love_language_mapping = {
@@ -519,41 +521,97 @@ def standardize_datasets(df1, df2):
 
     return df1, df2
 
-def load_and_prepare_data():
-    """Load and prepare the datasets"""
-    try:
-        # Replace these with your actual data loading logic
-        df = pd.read_csv('/content/drive/MyDrive/All_Match_Files /preprocessed_data_pi.csv')
-        df_2 = pd.read_csv('/content/drive/MyDrive/All_Match_Files /preprocessed_data_pi_updated.csv')
-        
-        # Your existing data processing code
-        df1 = df.copy()
-        df2 = df_2.copy()
+def handle_file_upload():
+    """Handle manual file uploads for both datasets"""
+    st.sidebar.header("📁 Upload Your Datasets")
+    
+    st.sidebar.markdown("""
+    **Instructions:**
+    1. Upload your first dataset (CSV format)
+    2. Upload your second dataset (CSV format)  
+    3. Click 'Process Datasets' to start matching
+    """)
+    
+    # File uploaders
+    uploaded_file1 = st.sidebar.file_uploader(
+        "Upload First Dataset (CSV)", 
+        type=['csv'],
+        key="file1",
+        help="Upload your first dataset in CSV format"
+    )
+    
+    uploaded_file2 = st.sidebar.file_uploader(
+        "Upload Second Dataset (CSV)", 
+        type=['csv'],
+        key="file2", 
+        help="Upload your second dataset in CSV format"
+    )
+    
+    # Process button
+    process_clicked = st.sidebar.button("🚀 Process Datasets", type="primary")
+    
+    return uploaded_file1, uploaded_file2, process_clicked
 
+def load_and_prepare_data(uploaded_file1, uploaded_file2):
+    """Load and prepare datasets from uploaded files"""
+    
+    if uploaded_file1 is None or uploaded_file2 is None:
+        return None, None, None
+    
+    try:
+        # Read uploaded files
+        df1 = pd.read_csv(uploaded_file1)
+        df2 = pd.read_csv(uploaded_file2)
+        
+        # Show dataset info
+        st.success(f"✅ Dataset 1 loaded: {len(df1)} users")
+        st.success(f"✅ Dataset 2 loaded: {len(df2)} users")
+        
+        # Display basic info about datasets
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info(f"**Dataset 1 Columns:** {len(df1.columns)}")
+            st.dataframe(df1.head(3), use_container_width=True)
+        
+        with col2:
+            st.info(f"**Dataset 2 Columns:** {len(df2.columns)}")
+            st.dataframe(df2.head(3), use_container_width=True)
+        
         # Standardize datasets
-        df1_std, df2_std = standardize_datasets(df1, df2)
+        with st.spinner("🔄 Standardizing datasets..."):
+            df1_std, df2_std = standardize_datasets(df1.copy(), df2.copy())
+        
+        # Combine datasets
         combined_df = pd.concat([df1_std, df2_std], ignore_index=True)
         combined_df = combined_df.fillna(0)
+        
+        st.success(f"✅ Combined dataset ready: {len(combined_df)} total users")
         
         return combined_df, df1_std, df2_std
         
     except Exception as e:
-        st.error(f"Error loading data: {e}")
-        # Return empty dataframes if loading fails
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        st.error(f"❌ Error processing files: {str(e)}")
+        return None, None, None
 
-def initialize_matchmaker():
+def initialize_matchmaker(combined_df, df1_std, df2_std):
     """Initialize the matchmaker with loaded data"""
-    combined_df, df1_std, df2_std = load_and_prepare_data()
-    
-    if combined_df.empty:
-        st.error("No data loaded. Please check your data files.")
+    if combined_df is None or combined_df.empty:
         return None
         
-    matchmaker = CrossDatasetMuslimMatchmaker(combined_df, df1_std, df2_std)
-    matchmaker.preprocess_features()
-    return matchmaker
+    try:
+        with st.spinner("🔄 Initializing matchmaker..."):
+            matchmaker = CrossDatasetMuslimMatchmaker(combined_df, df1_std, df2_std)
+            matchmaker.preprocess_features()
+        
+        st.success("✅ Matchmaker initialized successfully!")
+        return matchmaker
+        
+    except Exception as e:
+        st.error(f"❌ Error initializing matchmaker: {str(e)}")
+        return None
 
+# [Keep all your display functions exactly as they are]
+# show_dashboard(), find_matches_section(), user_details_section(), analytics_section(), display_user_details()
 def display_user_details(user_details):
     """Display user details in an organized format"""
     st.subheader("Basic Information")
@@ -838,39 +896,97 @@ def analytics_section(matchmaker):
         )
         st.plotly_chart(fig, use_container_width=True)
 
-def main():
-    st.title("🕌 Muslim Matchmaking Recommendation System")
+        
+def show_data_upload_section():
+    """Show the main data upload interface"""
+    st.header("🕌 Muslim Matchmaking Recommendation System")
     st.markdown("Find compatible matches based on religious values, goals, and preferences")
     
-    # Initialize matchmaker (cached for performance)
-    @st.cache_resource
-    def get_matchmaker():
-        return initialize_matchmaker()
+    st.markdown("---")
     
-    try:
-        matchmaker = get_matchmaker()
-        if matchmaker is None:
-            st.error("Failed to initialize matchmaker. Please check your data files.")
-            return
-    except Exception as e:
-        st.error(f"Error initializing matchmaker: {e}")
-        return
+    # Show upload instructions
+    col1, col2 = st.columns([1, 1])
     
-    # Sidebar for navigation
-    st.sidebar.title("Navigation")
-    app_mode = st.sidebar.selectbox(
-        "Choose a section",
-        ["🏠 Dashboard", "👤 Find Matches", "📊 User Details", "📈 Analytics"]
-    )
+    with col1:
+        st.subheader("📋 How to Use:")
+        st.markdown("""
+        1. **Upload Datasets** - Use the sidebar to upload two CSV files
+        2. **Process Data** - Click 'Process Datasets' to combine and standardize
+        3. **Find Matches** - Use the navigation to explore matches and analytics
+        4. **View Details** - See detailed user profiles and compatibility analysis
+        """)
     
-    if app_mode == "🏠 Dashboard":
-        show_dashboard(matchmaker)
-    elif app_mode == "👤 Find Matches":
-        find_matches_section(matchmaker)
-    elif app_mode == "📊 User Details":
-        user_details_section(matchmaker)
-    elif app_mode == "📈 Analytics":
-        analytics_section(matchmaker)
+    with col2:
+        st.subheader("🔍 Required Data Columns:")
+        st.markdown("""
+        Your CSV files should include:
+        - User identification
+        - Gender and age information  
+        - Religious practices
+        - Personal goals
+        - Location data
+        - Dealbreakers and preferences
+        """)
+    
+    st.info("👈 **Start by uploading your datasets in the sidebar**")
+
+def main():
+    # Initialize session state for matchmaker
+    if 'matchmaker' not in st.session_state:
+        st.session_state.matchmaker = None
+    if 'data_processed' not in st.session_state:
+        st.session_state.data_processed = False
+    
+    # Handle file uploads
+    uploaded_file1, uploaded_file2, process_clicked = handle_file_upload()
+    
+    # Process datasets when button is clicked
+    if process_clicked and uploaded_file1 and uploaded_file2:
+        with st.spinner("Processing your datasets..."):
+            combined_df, df1_std, df2_std = load_and_prepare_data(uploaded_file1, uploaded_file2)
+            
+            if combined_df is not None:
+                matchmaker = initialize_matchmaker(combined_df, df1_std, df2_std)
+                if matchmaker:
+                    st.session_state.matchmaker = matchmaker
+                    st.session_state.data_processed = True
+                    st.rerun()
+    
+    # Show appropriate content based on data state
+    if st.session_state.data_processed and st.session_state.matchmaker:
+        # Show the main app with navigation
+        matchmaker = st.session_state.matchmaker
+        
+        # Sidebar for navigation
+        st.sidebar.header("🎯 Navigation")
+        app_mode = st.sidebar.selectbox(
+            "Choose a section",
+            ["🏠 Dashboard", "👤 Find Matches", "📊 User Details", "📈 Analytics", "🔄 Upload New Data"]
+        )
+        
+        if app_mode == "🏠 Dashboard":
+            show_dashboard(matchmaker)
+        elif app_mode == "👤 Find Matches":
+            find_matches_section(matchmaker)
+        elif app_mode == "📊 User Details":
+            user_details_section(matchmaker)
+        elif app_mode == "📈 Analytics":
+            analytics_section(matchmaker)
+        elif app_mode == "🔄 Upload New Data":
+            # Reset and allow new uploads
+            if st.sidebar.button("Start New Session"):
+                st.session_state.matchmaker = None
+                st.session_state.data_processed = False
+                st.rerun()
+            show_data_upload_section()
+    
+    else:
+        # Show upload interface
+        show_data_upload_section()
+        
+        # Show demo data option (optional)
+        st.sidebar.markdown("---")
+        st.sidebar.info("💡 **Tip:** Make sure your CSV files have compatible column structures for best results")
 
 if __name__ == "__main__":
     main()
