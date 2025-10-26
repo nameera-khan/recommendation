@@ -6,8 +6,8 @@ import plotly.graph_objects as go
 
 # Set page configuration
 st.set_page_config(
-    page_title="Muslim Matchmaking App",
-    page_icon="💑",
+    page_title="Pure Intentions Matchmaking Dashboard",
+    page_icon="🕌",
     layout="wide",
     initial_sidebar_state="expanded"
 )
