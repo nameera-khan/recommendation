@@ -895,7 +895,7 @@ def analytics_section(matchmaker):
         
 def show_data_upload_section():
     """Show the main data upload interface"""
-    st.header("🕌 Muslim Matchmaking Recommendation System")
+    st.header("🕌 Pure Intentions Matchmaking Recommendation System")
     st.markdown("Find compatible matches based on religious values, goals, and preferences")
     
     st.markdown("---")
