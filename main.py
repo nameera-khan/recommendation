@@ -609,10 +609,10 @@ def initialize_matchmaker(combined_df, df1_std, df2_std):
         st.error(f"❌ Error initializing matchmaker: {str(e)}")
         return None
 
-def display_user_details(user_details):
+def display_user_details(details): #user_details
     """Display user details in an organized format"""
     st.subheader("Basic Information")
-    basic_info = user_details['basic_info']
+    basic_info = details['basic_info']
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -634,7 +634,7 @@ def display_user_details(user_details):
     
     # Religious Information
     st.subheader("Religious Information")
-    religious_info = user_details['religious_info']
+    religious_info = details['religious_info']
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -653,7 +653,7 @@ def display_user_details(user_details):
     
     # Goals
     st.subheader("Life Goals")
-    goals = user_details['top_priorities']
+    goals = details['top_priorities']
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -672,7 +672,7 @@ def display_user_details(user_details):
     
     # Dealbreakers
     st.subheader("Dealbreakers")
-    dealbreakers = user_details['dealbreakers']
+    dealbreakers = details['dealbreakers']
     if dealbreakers:
         for dealbreaker in dealbreakers:
             st.write(f"• {dealbreaker.replace('_', ' ').title()}")
