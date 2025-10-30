@@ -458,7 +458,7 @@ class CrossDatasetMuslimMatchmaker:
                 'completed_umrah': 'Yes' if user_data.get('self_umrah_hajj_umrah', 0) == 1 or user_data.get('self_umrah_hajj_both', 0) == 1 else 'No',
                 'completed_hajj': 'Yes' if user_data.get('self_umrah_hajj_both', 0) == 1 else 'No'
             },
-            'top priorities for next 5 years': {
+            'top_priorities': {
                 'buy_house': 'Yes' if user_data.get('self_goals_buy_house', 0) == 1 else 'No',
                 'get_married': 'Yes' if user_data.get('self_goals_get_married', 0) == 1 else 'No',
                 'have_children': 'Yes' if user_data.get('self_goals_have_children', 0) == 1 else 'No',
@@ -653,7 +653,7 @@ def display_user_details(user_details):
     
     # Goals
     st.subheader("Life Goals")
-    goals = user_details['goals']
+    goals = user_details['top_priorities']
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -666,6 +666,7 @@ def display_user_details(user_details):
     
     with col3:
         st.write("**Build Business:**", goals['build_business'])
+        st.write("**Improve in Deen:**", goals['improve_in_deen'])
     
     st.divider()
     
