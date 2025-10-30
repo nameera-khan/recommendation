@@ -458,12 +458,13 @@ class CrossDatasetMuslimMatchmaker:
                 'completed_umrah': 'Yes' if user_data.get('self_umrah_hajj_umrah', 0) == 1 or user_data.get('self_umrah_hajj_both', 0) == 1 else 'No',
                 'completed_hajj': 'Yes' if user_data.get('self_umrah_hajj_both', 0) == 1 else 'No'
             },
-            'goals': {
+            'top priorities for next 5 years': {
                 'buy_house': 'Yes' if user_data.get('self_goals_buy_house', 0) == 1 else 'No',
                 'get_married': 'Yes' if user_data.get('self_goals_get_married', 0) == 1 else 'No',
                 'have_children': 'Yes' if user_data.get('self_goals_have_children', 0) == 1 else 'No',
                 'travel': 'Yes' if user_data.get('self_goals_travel', 0) == 1 else 'No',
-                'build_business': 'Yes' if user_data.get('self_goals_build_business', 0) == 1 else 'No'
+                'build_business': 'Yes' if user_data.get('self_goals_build_business', 0) == 1 else 'No',
+                'improve_in_deen': 'Yes' if user_data.get('self_goals_improve_religion',0)== 1 else 'No'
             },
             'dealbreakers': self.dealbreaker_mapping.get(user_id, [])
         }
